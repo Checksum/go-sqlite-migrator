@@ -12,9 +12,7 @@ import (
 
 const invalid = -1
 
-func init() {
-	log.SetPrefix("sqlite-migrator: ")
-}
+var logger = log.New(os.Stderr, "[sqlite-migrator] ", log.LstdFlags)
 
 func readMigrations(dir fs.FS) ([]fs.DirEntry, error) {
 	var err error
@@ -52,10 +50,10 @@ func Run(db *sql.DB, dir fs.FS) (int, error) {
 		return invalid, fmt.Errorf("current version is invalid or missing in the migrations list, cannot proceed")
 	}
 
-	log.Printf("current DB version: %d, latest version: %d", currentVersion, latestVersion)
+	logger.Printf("current DB version: %d, latest version: %d", currentVersion, latestVersion)
 
 	if currentVersion == latestVersion {
-		log.Printf("DB upto date!")
+		logger.Printf("DB upto date!")
 		return latestVersion, nil
 	}
 
@@ -67,7 +65,7 @@ func Run(db *sql.DB, dir fs.FS) (int, error) {
 
 	for _, migration := range migrations[currentVersion:] {
 		name := migration.Name()
-		log.Printf("running migration %s", name)
+		logger.Printf("running migration %s", name)
 		if sql, err := fs.ReadFile(dir, name); err != nil {
 			_ = tx.Rollback()
 			return invalid, fmt.Errorf("could not read migration file %s", name)
@@ -80,7 +78,7 @@ func Run(db *sql.DB, dir fs.FS) (int, error) {
 	}
 
 	// Update current version and commit tx
-	log.Printf("writing new DB version: %d", latestVersion)
+	logger.Printf("writing new DB version: %d", latestVersion)
 	if _, err = tx.Exec(fmt.Sprintf("PRAGMA user_version=%d", latestVersion)); err != nil {
 		_ = tx.Rollback()
 		return invalid, fmt.Errorf("could not set user_version to %d: %s", latestVersion, err)
